@@ -6,7 +6,7 @@ from datetime import datetime
 # 1. CONFIGURAÇÃO DA PÁGINA & BRAND BOARD MULTVET
 # ==========================================
 st.set_page_config(
-    page_title="MultVet CapriLeite Custos - Gestão de Leite de Cabra",
+    page_title="MultVet LucroLeite Caprinos PRO - Gestão & Custos",
     page_icon="🐐",
     layout="wide"
 )
@@ -44,15 +44,6 @@ st.markdown("""
         font-size: 0.95rem;
     }
 
-    .metric-card {
-        background-color: #ffffff;
-        padding: 18px;
-        border-radius: 10px;
-        border-left: 5px solid var(--multvet-primary);
-        box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-        text-align: center;
-    }
-    
     .report-box {
         background-color: #ffffff;
         padding: 25px;
@@ -95,8 +86,8 @@ st.markdown("""
 # ==========================================
 st.markdown("""
     <div class="brand-header">
-        <h1>🐐 MultVet CapriLeite Custos</h1>
-        <p>MultVet Saúde na Prática | Calculadora de Custo do Litro de Leite de Cabra & Lucratividade</p>
+        <h1>🐐 MultVet LucroLeite Caprinos PRO</h1>
+        <p>MultVet Saúde na Prática | Gestão Financeira, Custo do Litro de Leite & Lucratividade</p>
     </div>
 """, unsafe_allow_html=True)
 
@@ -123,7 +114,7 @@ with col2:
     custo_concentrado_dia = st.number_input("Custo Diário com Concentrado/Ração (R$)", min_value=0.0, value=45.0, step=1.0)
 
 with col3:
-    custo_outros_dia = st.number_input("Outros Custos Diários (Mão de obra, med., energia - R$)", min_value=0.0, value=15.0, step=1.0)
+    custo_outros_dia = st.number_input("Outros Custos Diários (Mão de obra, medicamentos, energia - R$)", min_value=0.0, value=15.0, step=1.0)
 
 st.markdown("---")
 
@@ -152,7 +143,7 @@ st.markdown("---")
 if st.button("📊 Gerar Análise Econômica da Produção"):
     with st.spinner("O Médico Veterinário Virtual da MultVet está analisando a viabilidade financeira..."):
         try:
-            data_atual = datetime.now().strftime("%d/%m/%Y")
+            data_emissao = "24/09/2026"
             
             model = genai.GenerativeModel('gemini-3.6-flash')
             
@@ -161,11 +152,12 @@ if st.button("📊 Gerar Análise Econômica da Produção"):
             Crie um diagnóstico econômico do lote de caprinos leiteiros.
 
             INFORMAÇÕES OBRIGATÓRIAS DO CABEÇALHO:
-            - Marca: MULTVET SAÚDE NA PRÁTICA - CAPRILEITE CUSTOS
-            - Responsável Técnico: Dr. Luiz Pontes - Médico Veterinário
-            - Data de Emissão: {data_atual}
+            - Marca: MULTVET SAÚDE NA PRÁTICA - LUCROLEITE CAPRINOS PRO
+            - Responsável Técnico: Dr. Luiz Pontes – Médico Veterinário
+            - Data de Emissão: {data_emissao}
+            - Objeto de Análise: Lote de Caprinos Leiteiros em Lactação
 
-            DADOS FINANCEIROS ENVIADOS:
+            DADOS ENVIADOS PARA O PAINEL:
             - Cabras em Lactação: {num_cabras}
             - Produção Total: {prod_diaria} L/dia (Média: {prod_diaria/num_cabras:.2f} L/cabra/dia)
             - Custo do Volumoso/dia: R$ {custo_volumoso_dia:.2f}
@@ -178,11 +170,18 @@ if st.button("📊 Gerar Análise Econômica da Produção"):
             - Lucro Líquido Mensal Estimado: R$ {lucro_mensal:.2f}
             - Margem de Lucro: {margem_lucro_pct:.1f}%
 
-            ESTRUTURA DO DIAGNÓSTICO:
-            1. Cabeçalho formatado com os dados acima.
-            2. Diagnóstico da Saúde Financeira do Capril (Análise se a margem está excelente, moderada ou crítica).
-            3. Participação do Custo de Ração na Receita (% gasto em alimentação vs faturamento total).
-            4. Recomendações Práticas do Dr. Luiz Pontes para Aumentar a Margem por Litro (Estratégia de volumoso, ajuste de concentrado e gestão).
+            ESTRUTURA DO DIAGNÓSTICO OBRIGATÓRIA:
+            1. Cabeçalho formatado com as informações acima (NUNCA inclua a sigla CRMV).
+            2. PAINEL DE DADOS ZOOTÉCNICOS E FINANCEIROS:
+               Apresente em tabela Markdown organizada com os cabeçalhos:
+               | Indicador Zootécnico e Financeiro | Valor Apurado |
+               (Inclua na tabela os dados de Produção Total, Custo Total Diário, Custo por Litro, Preço de Venda, Lucro Diário e Margem de Lucro com ortografia perfeita).
+            3. DIAGNÓSTICO DA SAÚDE FINANCEIRA DO CAPRIL:
+               Análise se a margem está excelente, moderada ou crítica.
+            4. PARTICIPAÇÃO DO CUSTO DE ALIMENTAÇÃO NA RECEITA:
+               Análise percentual do gasto de alimentação vs faturamento total.
+            5. RECOMENDAÇÕES DO DR. LUIZ PONTES:
+               Estratégias práticas para aumentar a margem de lucro por litro de leite.
             """
             
             response = model.generate_content(prompt)
@@ -199,7 +198,7 @@ if st.button("📊 Gerar Análise Econômica da Produção"):
                 st.download_button(
                     label="📄 Baixar Diagnóstico Financeiro (.txt)",
                     data=response.text,
-                    file_name=f"Diagnostico_CapriLeite_Custos_{data_atual.replace('/', '-')}.txt",
+                    file_name=f"Diagnostico_LucroLeite_Caprinos_{data_emissao.replace('/', '-')}.txt",
                     mime="text/plain"
                 )
             with c2:
