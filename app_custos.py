@@ -1,4 +1,7 @@
 import streamlit as st
+# Bloqueio temporário durante a configuração do acesso
+st.warning("O MultVet LucroLeite Caprinos PRO está temporariamente em manutenção.")
+st.stop()
 import google.generativeai as genai
 from datetime import datetime
 
