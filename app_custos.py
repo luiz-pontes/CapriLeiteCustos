@@ -1,211 +1,68 @@
-import streamlit as st
-# Bloqueio temporário durante a configuração do acesso
-st.warning("O MultVet LucroLeite Caprinos PRO está temporariamente em manutenção.")
-st.stop()
-import google.generativeai as genai
+import json
 from datetime import datetime
+from zoneinfo import ZoneInfo
+import streamlit as st
+from calculos import DEFAULTS, CUSTOS, calcular, validar
 
-# ==========================================
-# 1. CONFIGURAÇÃO DA PÁGINA & BRAND BOARD MULTVET
-# ==========================================
-st.set_page_config(
-    page_title="MultVet LucroLeite Caprinos PRO - Gestão & Custos",
-    page_icon="🐐",
-    layout="wide"
-)
-
-# Estilização CSS com a Brand Board da MultVet
-st.markdown("""
-    <style>
-    :root {
-        --multvet-primary: #1e5631;
-        --multvet-secondary: #2e7d32;
-        --multvet-bg: #f4f6f8;
-    }
-    
-    .stApp {
-        background-color: var(--multvet-bg);
-    }
-    
-    .brand-header {
-        background: linear-gradient(135deg, #1e5631 0%, #2e7d32 100%);
-        color: white;
-        padding: 20px 25px;
-        border-radius: 12px;
-        margin-bottom: 25px;
-        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08);
-    }
-    .brand-header h1 {
-        color: #ffffff !important;
-        margin: 0;
-        font-size: 1.8rem;
-        font-weight: 700;
-    }
-    .brand-header p {
-        color: #e8f5e9 !important;
-        margin: 5px 0 0 0;
-        font-size: 0.95rem;
-    }
-
-    .report-box {
-        background-color: #ffffff;
-        padding: 25px;
-        border-radius: 10px;
-        border: 1px solid #c8e6c9;
-        border-left: 6px solid var(--multvet-primary);
-        box-shadow: 0 4px 10px rgba(0,0,0,0.05);
-        margin-top: 20px;
-    }
-
-    .stButton > button {
-        background-color: var(--multvet-secondary) !important;
-        color: white !important;
-        font-weight: bold !important;
-        font-size: 1.05rem !important;
-        border-radius: 8px !important;
-        padding: 0.7rem 1.5rem !important;
-        border: none !important;
-        width: 100% !important;
-    }
-    .stButton > button:hover {
-        background-color: var(--multvet-primary) !important;
-    }
-
-    @media print {
-        [data-testid="stSidebar"], header, footer, .stButton, .no-print {
-            display: none !important;
-        }
-        .report-box {
-            border: none !important;
-            box-shadow: none !important;
-            padding: 0 !important;
-        }
-    }
-    </style>
-""", unsafe_allow_html=True)
-
-# ==========================================
-# 2. CABEÇALHO DO APLICATIVO
-# ==========================================
-st.markdown("""
-    <div class="brand-header">
-        <h1>🐐 MultVet LucroLeite Caprinos PRO</h1>
-        <p>MultVet Saúde na Prática | Gestão Financeira, Custo do Litro de Leite & Lucratividade</p>
-    </div>
-""", unsafe_allow_html=True)
-
-if "GEMINI_API_KEY" not in st.secrets:
-    st.error("⚠️ Chave de API não encontrada nos Secrets! Adicione GEMINI_API_KEY nos Secrets do Streamlit Cloud.")
+st.set_page_config(page_title='MultVet — LucroLeite Caprinos PRO', page_icon='🐐', layout='wide')
+# Não retirar este bloqueio antes da integração e dos testes do controle de acesso.
+# Não há opção pública de contornar a manutenção.
+try:
+    revisao_local = st.secrets.get('REVISAO_LOCAL', False) is True
+except FileNotFoundError:
+    revisao_local = False
+if not revisao_local:
+    st.warning('O MultVet LucroLeite Caprinos PRO está temporariamente em manutenção.')
     st.stop()
 
-genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
-
-# ==========================================
-# 3. FORMULÁRIO DE DADOS FINANCEIROS
-# ==========================================
-st.subheader("📋 Dados da Produção e Custos Diários")
-
-col1, col2, col3 = st.columns(3)
-
-with col1:
-    num_cabras = st.number_input("Nº de Cabras em Lactação", min_value=1, value=15, step=1)
-    prod_diaria = st.number_input("Produção Total Diária (Litros/dia)", min_value=0.1, value=37.5, step=0.5)
-    preco_litro = st.number_input("Preço de Venda do Litro (R$)", min_value=0.1, value=3.50, step=0.10)
-
-with col2:
-    custo_volumoso_dia = st.number_input("Custo Diário com Volumoso (R$)", min_value=0.0, value=25.0, step=1.0)
-    custo_concentrado_dia = st.number_input("Custo Diário com Concentrado/Ração (R$)", min_value=0.0, value=45.0, step=1.0)
-
-with col3:
-    custo_outros_dia = st.number_input("Outros Custos Diários (Mão de obra, medicamentos, energia - R$)", min_value=0.0, value=15.0, step=1.0)
-
-st.markdown("---")
-
-# ==========================================
-# 4. CÁLCULOS MATEMÁTICOS EM TEMPO REAL
-# ==========================================
-custo_total_dia = custo_volumoso_dia + custo_concentrado_dia + custo_outros_dia
-custo_por_litro = custo_total_dia / prod_diaria if prod_diaria > 0 else 0.0
-receita_diaria = prod_diaria * preco_litro
-lucro_diario = receita_diaria - custo_total_dia
-lucro_mensal = lucro_diario * 30
-margem_lucro_pct = (lucro_diario / receita_diaria * 100) if receita_diaria > 0 else 0.0
-
-# Exibição dos cards de resultados
-m1, m2, m3, m4 = st.columns(4)
-m1.metric("Custo / Litro", f"R$ {custo_por_litro:.2f}")
-m2.metric("Preço de Venda / Litro", f"R$ {preco_litro:.2f}")
-m3.metric("Lucro Líquido / Dia", f"R$ {lucro_diario:.2f}", delta=f"{margem_lucro_pct:.1f}% Margem")
-m4.metric("Lucro Líquido / Mês (Estimado)", f"R$ {lucro_mensal:.2f}")
-
-st.markdown("---")
-
-# ==========================================
-# 5. ANÁLISE CONSULTIVA COM IA
-# ==========================================
-if st.button("📊 Gerar Análise Econômica da Produção"):
-    with st.spinner("O Médico Veterinário Virtual da MultVet está analisando a viabilidade financeira..."):
+st.markdown('''<style>.stApp{background:#f5f4ed;color:#173e32}h1,h2,h3{color:#173e32!important}[data-testid="stMetric"]{background:white;padding:16px;border-radius:12px;border-top:4px solid #c4a45d}</style>''', unsafe_allow_html=True)
+st.title('🐐 MultVet — LucroLeite Caprinos PRO')
+st.caption('Custos e resultado econômico da produção de leite de cabra')
+st.info('Ambiente de revisão. Acesso comercial previsto: 12 meses, sem renovação automática. Preço definido: R$ 52,75. A integração de compra ainda não está ativa nesta versão.')
+LABELS = dict(cabras='Cabras em lactação', litros='Produção total de leite (L/dia)', preco='Preço de venda (R$/L)', dias='Dias do período', volumoso='Volumoso', concentrado='Concentrado / ração', sanidade='Sanidade', mao_obra='Mão de obra paga', energia='Energia, água e combustível', outros='Outros gastos pagos', manutencao='Manutenção', depreciacao='Depreciação rateada', mao_obra_familiar='Mão de obra familiar estimada', capital='Custo de oportunidade do capital')
+for k, v in DEFAULTS.items():
+    st.session_state.setdefault(k, v)
+with st.expander('Restaurar dados de um arquivo JSON'):
+    arquivo = st.file_uploader('Selecione o arquivo exportado pela LucroLeite', type='json')
+    if st.button('Carregar dados', disabled=arquivo is None):
         try:
-            data_emissao = "24/09/2026"
-            
-            model = genai.GenerativeModel('gemini-3.6-flash')
-            
-            prompt = f"""
-            Você é um assistente técnico gerando um relatório financeiro e zootécnico veterinário oficial.
-            Crie um diagnóstico econômico do lote de caprinos leiteiros.
-
-            INFORMAÇÕES OBRIGATÓRIAS DO CABEÇALHO:
-            - Marca: MULTVET SAÚDE NA PRÁTICA - LUCROLEITE CAPRINOS PRO
-            - Responsável Técnico: Dr. Luiz Pontes – Médico Veterinário
-            - Data de Emissão: {data_emissao}
-            - Objeto de Análise: Lote de Caprinos Leiteiros em Lactação
-
-            DADOS ENVIADOS PARA O PAINEL:
-            - Cabras em Lactação: {num_cabras}
-            - Produção Total: {prod_diaria} L/dia (Média: {prod_diaria/num_cabras:.2f} L/cabra/dia)
-            - Custo do Volumoso/dia: R$ {custo_volumoso_dia:.2f}
-            - Custo do Concentrado/dia: R$ {custo_concentrado_dia:.2f}
-            - Outros Custos/dia: R$ {custo_outros_dia:.2f}
-            - Custo Total Diário: R$ {custo_total_dia:.2f}
-            - Custo Real por Litro Produzido: R$ {custo_por_litro:.2f}
-            - Preço de Venda do Litro: R$ {preco_litro:.2f}
-            - Lucro Líquido Diário: R$ {lucro_diario:.2f}
-            - Lucro Líquido Mensal Estimado: R$ {lucro_mensal:.2f}
-            - Margem de Lucro: {margem_lucro_pct:.1f}%
-
-            ESTRUTURA DO DIAGNÓSTICO OBRIGATÓRIA:
-            1. Cabeçalho formatado com as informações acima (NUNCA inclua a sigla CRMV).
-            2. PAINEL DE DADOS ZOOTÉCNICOS E FINANCEIROS:
-               Apresente em tabela Markdown organizada com os cabeçalhos:
-               | Indicador Zootécnico e Financeiro | Valor Apurado |
-               (Inclua na tabela os dados de Produção Total, Custo Total Diário, Custo por Litro, Preço de Venda, Lucro Diário e Margem de Lucro com ortografia perfeita).
-            3. DIAGNÓSTICO DA SAÚDE FINANCEIRA DO CAPRIL:
-               Análise se a margem está excelente, moderada ou crítica.
-            4. PARTICIPAÇÃO DO CUSTO DE ALIMENTAÇÃO NA RECEITA:
-               Análise percentual do gasto de alimentação vs faturamento total.
-            5. RECOMENDAÇÕES DO DR. LUIZ PONTES:
-               Estratégias práticas para aumentar a margem de lucro por litro de leite.
-            """
-            
-            response = model.generate_content(prompt)
-            
-            st.markdown("<div class='report-box'>", unsafe_allow_html=True)
-            st.markdown(response.text)
-            st.markdown("</div>", unsafe_allow_html=True)
-            
-            st.success("✅ Diagnóstico Econômico gerado com sucesso!")
-            st.markdown("---")
-            
-            c1, c2 = st.columns(2)
-            with c1:
-                st.download_button(
-                    label="📄 Baixar Diagnóstico Financeiro (.txt)",
-                    data=response.text,
-                    file_name=f"Diagnostico_LucroLeite_Caprinos_{data_emissao.replace('/', '-')}.txt",
-                    mime="text/plain"
-                )
-            with c2:
-                st.info("💡 **Para Imprimir ou Salvar em PDF:** Pressione **Ctrl + P** no teclado.")
-            
-        except Exception as e:
-            st.error(f"Ocorreu um erro ao gerar a análise: {e}")
+            if arquivo.size > 100_000:
+                raise ValueError('Arquivo muito grande.')
+            obj = json.loads(arquivo.getvalue())
+            if obj.get('aplicativo') != 'multvet_lucroleite' or obj.get('versao') != 1:
+                raise ValueError('Arquivo de outro aplicativo ou versão.')
+            st.session_state.update(validar(obj['dados']))
+            st.success('Dados carregados.')
+        except (ValueError, KeyError, TypeError, AttributeError) as erro:
+            st.error(f'Não foi possível importar: {erro}')
+st.subheader('Produção e venda')
+cols = st.columns(2)
+for i, k in enumerate(('cabras','litros','preco','dias')):
+    with cols[i % 2]:
+        st.number_input(LABELS[k], min_value=1 if k in ('cabras','dias') else 0., step=1 if k in ('cabras','dias') else .1, key=k)
+st.subheader('Custos do grupo de cabras — R$/dia')
+st.caption('Rateie despesas mensais e anuais por dia. Inclua os custos atribuíveis ao leite; evite contabilizar a mesma despesa duas vezes. Valores de exemplo devem ser substituídos.')
+cols = st.columns(2)
+for i,k in enumerate(CUSTOS):
+    with cols[i%2]:
+        st.number_input(LABELS[k]+' (R$/dia)', min_value=0., step=1., key=k)
+d = {k:st.session_state[k] for k in DEFAULTS}
+r = calcular(d)
+def br(v):
+    return f'{v:,.2f}'.replace(',', 'X').replace('.', ',').replace('X', '.') if v is not None else 'Não calculável'
+cols = st.columns(3)
+cols[0].metric('Custo total informado / litro', 'R$ '+br(r['custo_litro']) if r['custo_litro'] is not None else 'Sem produção')
+cols[1].metric('Resultado estimado / dia', 'R$ '+br(r['resultado']))
+cols[2].metric('Resultado no período', 'R$ '+br(r['resultado_periodo']))
+st.caption('O resultado considera apenas os custos informados. A projeção mantém produção, preço e despesas constantes durante o período.')
+if not d['litros']:
+    st.warning('Sem produção de leite: o custo por litro não pode ser calculado. Os custos diários continuam no resultado.')
+st.subheader('Detalhamento')
+NOMES = dict(coe='COE — Custo Operacional Efetivo (R$/dia)', cot='COT — Custo Operacional Total (R$/dia)', total='Custo total informado (R$/dia)', receita='Receita do leite (R$/dia)', resultado='Resultado estimado (R$/dia)', resultado_periodo='Resultado no período (R$)', litros_cabra='Produção média (L/cabra/dia)', custo_litro='Preço de equilíbrio (R$/L)', margem='Margem sobre a receita (%)', equilibrio_litros='Produção de equilíbrio ao preço informado (L/dia)')
+st.table([{'Indicador':v,'Valor':br(r[k])} for k,v in NOMES.items()])
+st.caption('COE: gastos operacionais pagos. COT: COE + depreciação + mão de obra familiar estimada. Custo total informado: COT + custo de oportunidade do capital. A produção de equilíbrio supõe despesas constantes; não representa uma recomendação de aumento de produção.')
+agora = datetime.now(ZoneInfo('America/Sao_Paulo')).strftime('%d/%m/%Y %H:%M')
+relatorio = '\n'.join(['MULTVET — LUCROLEITE CAPRINOS PRO', 'Relatório de planejamento econômico', 'Emissão: '+agora+' (Brasília)', '', 'ENTRADAS'] + [f'{LABELS[k]}: {br(v)}' for k,v in d.items()] + ['', 'INDICADORES'] + [f'{v}: {br(r[k])}' for k,v in NOMES.items()] + ['', 'COE: gastos pagos; COT: COE + depreciação + mão de obra familiar.', 'Total: COT + custo de oportunidade do capital.', 'Estimativa baseada nos valores informados, com condições constantes no período.', 'Este relatório não é um laudo nem uma prescrição nutricional.'])
+st.download_button('Baixar relatório (.txt)', relatorio, 'Relatorio_LucroLeite.txt', 'text/plain')
+st.download_button('Salvar dados (.json)', json.dumps(dict(aplicativo='multvet_lucroleite', versao=1, dados=d), ensure_ascii=False, indent=2), 'Dados_LucroLeite.json', 'application/json')
+st.info('Salve o JSON antes de sair. Os campos permanecem apenas durante a sessão e podem ser perdidos ao fechar ou recarregar. O relatório TXT serve para consulta; o JSON permite restaurar os dados.')
