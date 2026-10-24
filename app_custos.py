@@ -5,20 +5,21 @@ import streamlit as st
 from calculos import DEFAULTS, CUSTOS, calcular, validar
 
 st.set_page_config(page_title='MultVet — LucroLeite Caprinos PRO', page_icon='🐐', layout='wide')
-# Não retirar este bloqueio antes da integração e dos testes do controle de acesso.
-# Não há opção pública de contornar a manutenção.
+# Manutenção por padrão. Ativar somente após configurar SQL, Secrets e permissões.
 try:
-    revisao_local = st.secrets.get('REVISAO_LOCAL', False) is True
+    liberar = st.secrets.get('LIBERAR_LUCROLEITE', False) is True
 except FileNotFoundError:
-    revisao_local = False
-if not revisao_local:
+    liberar = False
+if not liberar:
     st.warning('O MultVet LucroLeite Caprinos PRO está temporariamente em manutenção.')
     st.stop()
+from acesso_ui import proteger
+proteger()
 
 st.markdown('''<style>.stApp{background:#f5f4ed;color:#173e32}h1,h2,h3{color:#173e32!important}[data-testid="stMetric"]{background:white;padding:16px;border-radius:12px;border-top:4px solid #c4a45d}</style>''', unsafe_allow_html=True)
 st.title('🐐 MultVet — LucroLeite Caprinos PRO')
 st.caption('Custos e resultado econômico da produção de leite de cabra')
-st.info('Ambiente de revisão. Acesso comercial previsto: 12 meses, sem renovação automática. Preço definido: R$ 52,75. A integração de compra ainda não está ativa nesta versão.')
+st.caption('Acesso por 12 meses, sem renovação automática.')
 LABELS = dict(cabras='Cabras em lactação', litros='Produção total de leite (L/dia)', preco='Preço de venda (R$/L)', dias='Dias do período', volumoso='Volumoso', concentrado='Concentrado / ração', sanidade='Sanidade', mao_obra='Mão de obra paga', energia='Energia, água e combustível', outros='Outros gastos pagos', manutencao='Manutenção', depreciacao='Depreciação rateada', mao_obra_familiar='Mão de obra familiar estimada', capital='Custo de oportunidade do capital')
 for k, v in DEFAULTS.items():
     st.session_state.setdefault(k, v)
