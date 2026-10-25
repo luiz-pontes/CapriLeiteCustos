@@ -84,4 +84,13 @@ def proteger():
         st.error('Não foi possível verificar seu acesso. Tente novamente; se persistir, contate a MultVet.');st.stop()
     if not access:
         st.info('Não encontramos acesso ativo a este produto. Confira o email usado na compra. O acesso depende da aprovação do pagamento e do prazo contratado.');st.stop()
-    st.sidebar.caption('Acesso válido até '+access[0]['fim_acesso'][:10])
+    validade = str(access[0]['fim_acesso'])
+    if validade == 'infinity':
+        st.sidebar.caption('Acesso sem prazo de expiração')
+    else:
+        from datetime import date
+        try:
+            data_br = date.fromisoformat(validade[:10]).strftime('%d/%m/%Y')
+        except ValueError:
+            data_br = 'consulte a MultVet'
+        st.sidebar.caption('Acesso válido até '+data_br)
